@@ -3,6 +3,12 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "./ChatBot.css";
 import botImg from "../assets/bg-pattern.png";
 import userImg from "../assets/user.png";
+import { generateClient } from 'aws-amplify/api';
+import { createMessage } from '../graphql/mutations';
+import { Auth } from 'aws-amplify';
+
+const client = generateClient();
+
 
 const ChatBot = () => {
   const [messages, setMessages] = useState([
@@ -11,35 +17,65 @@ const ChatBot = () => {
   const [input, setInput] = useState("");
   const chatBoxRef = useRef(null);
 
+
+  
+
   const sendMessage = async () => {
     if (input.trim() === "") return;
-
-    
-    setMessages((prev) => [...prev, { text: input, sender: "user" }]);
+  
+    const userMessage = input;
+    setMessages((prev) => [...prev, { text: userMessage, sender: "user" }]);
     setInput("");
-
+  
+    // Save user message
+    await saveMessage(userMessage, "user");
+  
     try {
-    
       const response = await fetch("https://your-backend-api-url.com/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message: input }),
+        body: JSON.stringify({ message: userMessage }),
       });
-
+  
       const data = await response.json();
-
-      setMessages((prev) => [...prev, { text: data.reply, sender: "bot" }]);
+      const botReply = data.reply;
+  
+      setMessages((prev) => [...prev, { text: botReply, sender: "bot" }]);
+  
+      // Save bot reply
+      await saveMessage(botReply, "bot");
     } catch (error) {
-     
-      setMessages((prev) => [
-        ...prev,
-        { text: "Sorry, something went wrong.", sender: "bot" },
-      ]);
+      const errorMsg = "Sorry, something went wrong.";
+      setMessages((prev) => [...prev, { text: errorMsg, sender: "bot" }]);
+  
+      // Save error message from bot
+      await saveMessage(errorMsg, "bot");
+  
       console.error("Error contacting backend:", error);
     }
   };
+
+  const saveMessage = async (text, sender) => {
+    try {
+      const user = await Auth.currentAuthenticatedUser();
+      await client.graphql({
+        query: createMessage,
+        variables: {
+          input: {
+            text,
+            type: sender, // "user" or "bot"
+            owner: user.username,
+            createdAt: new Date().toISOString(),
+          },
+        },
+      });
+    } catch (err) {
+      console.error("Error saving message to DynamoDB:", err);
+    }
+  };
+  
 
   useEffect(() => {
     

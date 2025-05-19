@@ -1,0 +1,6 @@
+type Message @model @auth(rules: [{ allow: owner }]) {
+  id: ID!
+  text: String!
+  type: String! # "user" or "bot"
+  createdAt: AWSDateTime
+}
