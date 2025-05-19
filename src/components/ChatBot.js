@@ -1,8 +1,22 @@
 import React, { useState, useEffect, useRef } from "react";
+import AWS from "aws-sdk";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./ChatBot.css";
 import botImg from "../assets/bg-pattern.png";
 import userImg from "../assets/user.png";
+
+
+AWS.config.update({
+  region: "eu-west-2",
+
+  
+});
+
+const lexV2 = new AWS.LexRuntimeV2();
+
+const botId = "GLCG3VORGL";
+const botAliasId = "TSTALIASID";
+const localeId = "en_US"; 
 
 const ChatBot = () => {
   const [messages, setMessages] = useState([
@@ -11,38 +25,36 @@ const ChatBot = () => {
   const [input, setInput] = useState("");
   const chatBoxRef = useRef(null);
 
-  const sendMessage = async () => {
+  const sendMessage = () => {
     if (input.trim() === "") return;
 
-    
-    setMessages((prev) => [...prev, { text: input, sender: "user" }]);
+    const userMessage = input;
+    setMessages((prev) => [...prev, { text: userMessage, sender: "user" }]);
     setInput("");
 
-    try {
-    
-      const response = await fetch("https://your-backend-api-url.com/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ message: input }),
-      });
+    const params = {
+      botId,
+      botAliasId,
+      localeId,
+      sessionId: "user-" + Date.now(),
+      text: userMessage,
+    };
 
-      const data = await response.json();
-
-      setMessages((prev) => [...prev, { text: data.reply, sender: "bot" }]);
-    } catch (error) {
-     
-      setMessages((prev) => [
-        ...prev,
-        { text: "Sorry, something went wrong.", sender: "bot" },
-      ]);
-      console.error("Error contacting backend:", error);
-    }
+    lexV2.recognizeText(params, function (err, data) {
+      if (err) {
+        console.error("Lex V2 error:", err);
+        setMessages((prev) => [
+          ...prev,
+          { text: "Sorry, something went wrong.", sender: "bot" },
+        ]);
+      } else if (data && data.messages) {
+        const botReply = data.messages.map(m => m.content).join(" ");
+        setMessages((prev) => [...prev, { text: botReply, sender: "bot" }]);
+      }
+    });
   };
 
   useEffect(() => {
-    
     chatBoxRef.current?.scrollTo(0, chatBoxRef.current.scrollHeight);
   }, [messages]);
 
@@ -53,11 +65,7 @@ const ChatBot = () => {
           {messages.map((msg, index) => (
             <div
               key={index}
-              className={`d-flex mb-3 ${
-                msg.sender === "user"
-                  ? "justify-content-end"
-                  : "justify-content-start"
-              }`}
+              className={`d-flex mb-3 ${msg.sender === "user" ? "justify-content-end" : "justify-content-start"}`}
             >
               <img
                 src={msg.sender === "user" ? userImg : botImg}
