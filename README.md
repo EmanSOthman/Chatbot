@@ -21,7 +21,6 @@ graph TD
   D --> E
   E --> C
 
----
 
 ## 🚀 Installation Instructions
 
