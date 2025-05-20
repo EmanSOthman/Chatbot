@@ -4,23 +4,18 @@ A serverless, scalable non-developer support chatbot system powered by **Amazon 
 
 ---
 
-# 🧠 Architecture Overview
+## 🧠 Architecture Overview
 
-## Main Components
 
-```mermaid
-graph TD
-  A[React Frontend<br>via AWS Amplify Hosting]
-  B[Cognito User Auth]
-  C[DynamoDB]
-  D[Amazon Lex V2 Bot]
-  E[Lambda Fulfillment Function]
+Main Components
+  A --> React Frontend deployed via AWS Amplify Hosting
+  B --> Cognito User Auth
+  C --> DynamoDB
+  D --> Amazon Lex V2 Bot
+  E --> Lambda Fulfillment Function
 
-  A --> B
-  A --> D
-  D --> E
-  E --> C
 
+---
 
 ## 🚀 Installation Instructions
 
