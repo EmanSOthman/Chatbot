@@ -1,13 +1,47 @@
 import React, { useState, useEffect, useRef } from "react";
+import AWS from "aws-sdk";
+import { getCurrentUser } from '@aws-amplify/auth';
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./ChatBot.css";
 import botImg from "../assets/bg-pattern.png";
 import userImg from "../assets/user.png";
-import { generateClient } from 'aws-amplify/api';
-import { createMessage } from '../graphql/mutations';
-import { Auth } from 'aws-amplify';
 
-const client = generateClient();
+// AWS Lex V2 config
+AWS.config.update({
+  region: "eu-west-2",
+});
+
+
+const lexV2 = new AWS.LexRuntimeV2();
+const botId = "GLCG3VORGL";
+const botAliasId = "TSTALIASID";
+const localeId = "en_US";
+
+
+const saveConversation = async (userMessage, userMessageTime, botReply, botReplyTime) => {
+  try {
+    const user = await getCurrentUser();
+    const email = user.signInDetails?.loginId || "unknown";
+    const username = user.username || "unknown";
+
+    await fetch("https://q4pteydjr3.execute-api.eu-west-2.amazonaws.com/prod", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        username,
+        email,
+        userMessage,
+        userMessageTime,
+        botReply,
+        botReplyTime,
+      }),
+    });
+  } catch (error) {
+    console.error("Failed to save conversation:", error);
+  }
+};
 
 
 const ChatBot = () => {
@@ -17,68 +51,41 @@ const ChatBot = () => {
   const [input, setInput] = useState("");
   const chatBoxRef = useRef(null);
 
-
-  
-
   const sendMessage = async () => {
     if (input.trim() === "") return;
-  
+
     const userMessage = input;
+    const userMessageTime = new Date().toISOString();
     setMessages((prev) => [...prev, { text: userMessage, sender: "user" }]);
     setInput("");
-  
-    // Save user message
-    await saveMessage(userMessage, "user");
-  
-    try {
-      const response = await fetch("https://your-backend-api-url.com/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ message: userMessage }),
-      });
-  
-      const data = await response.json();
-      const botReply = data.reply;
-  
-      setMessages((prev) => [...prev, { text: botReply, sender: "bot" }]);
-  
-      // Save bot reply
-      await saveMessage(botReply, "bot");
-    } catch (error) {
-      const errorMsg = "Sorry, something went wrong.";
-      setMessages((prev) => [...prev, { text: errorMsg, sender: "bot" }]);
-  
-      // Save error message from bot
-      await saveMessage(errorMsg, "bot");
-  
-      console.error("Error contacting backend:", error);
-    }
-  };
 
-  const saveMessage = async (text, sender) => {
-    try {
-      const user = await Auth.currentAuthenticatedUser();
-      await client.graphql({
-        query: createMessage,
-        variables: {
-          input: {
-            text,
-            type: sender, // "user" or "bot"
-            owner: user.username,
-            createdAt: new Date().toISOString(),
-          },
-        },
-      });
-    } catch (err) {
-      console.error("Error saving message to DynamoDB:", err);
-    }
+    const params = {
+      botId,
+      botAliasId,
+      localeId,
+      sessionId: "user-" + Date.now(),
+      text: userMessage,
+    };
+
+    lexV2.recognizeText(params, async function (err, data) {
+      if (err) {
+        console.error("Lex V2 error:", err);
+        const botReply = "Sorry, something went wrong.";
+        const botReplyTime = new Date().toISOString();
+
+        setMessages((prev) => [...prev, { text: botReply, sender: "bot" }]);
+        await saveConversation(userMessage, userMessageTime, botReply, botReplyTime);
+      } else if (data && data.messages) {
+        const botReply = data.messages.map((m) => m.content).join(" ");
+        const botReplyTime = new Date().toISOString();
+
+        setMessages((prev) => [...prev, { text: botReply, sender: "bot" }]);
+        await saveConversation(userMessage, userMessageTime, botReply, botReplyTime);
+      }
+    });
   };
-  
 
   useEffect(() => {
-    
     chatBoxRef.current?.scrollTo(0, chatBoxRef.current.scrollHeight);
   }, [messages]);
 
@@ -90,9 +97,7 @@ const ChatBot = () => {
             <div
               key={index}
               className={`d-flex mb-3 ${
-                msg.sender === "user"
-                  ? "justify-content-end"
-                  : "justify-content-start"
+                msg.sender === "user" ? "justify-content-end" : "justify-content-start"
               }`}
             >
               <img
@@ -127,3 +132,4 @@ const ChatBot = () => {
 };
 
 export default ChatBot;
+
