@@ -7,13 +7,13 @@ A serverless, scalable non-developer support chatbot system powered by **Amazon 
 ## 🧠 Architecture Overview
 
 
-Main Components
-  A --> React Frontend deployed via AWS Amplify Hosting
-  B --> Cognito User Auth
-  C --> DynamoDB
-  D --> Amazon Lex V2 Bot
-  E --> Lambda Fulfillment Function
+## Main Components
 
+- **A**: React Frontend deployed via AWS Amplify Hosting  
+- **B**: Cognito User Auth  
+- **C**: DynamoDB  
+- **D**: Amazon Lex V2 Bot  
+- **E**: Lambda Fulfillment Function  
 
 ---
 
